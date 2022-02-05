@@ -1,0 +1,26 @@
+{
+  "name": "paradox-nft",
+  "version": "1.0.0",
+  "description": "NFT project based on puzzles ",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "nft",
+    "solidity"
+  ],
+  "author": "binora",
+  "license": "ISC",
+  "devDependencies": {
+    "erc721a": "^2.1.0",
+    "mocha": "^9.2.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.4.2",
+    "dotenv": "^10.0.0",
+    "ganache-cli": "^6.12.2",
+    "solc": "^0.8.11",
+    "web3": "^1.7.0"
+  }
+}

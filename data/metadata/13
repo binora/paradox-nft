@@ -1,0 +1,8 @@
+{
+ "name": "testNFT",
+ "description": "testing NFT generation",
+ "tokenId": 13,
+ "image": "ipfs://QmTMi2ybw8V1ESTZnY4R929Ve8AYMVfoGzsQHWNBSSisPg/13.png",
+ "external_url": "https://www.example.com",
+ "attributes": []
+}
