@@ -4,105 +4,178 @@ const ganache = require('ganache-cli')
 const Web3 = require('web3');
 const web3 = new Web3(ganache.provider());
 
-const compiledFactory = require('../ethereum/build/CampaignFactory.json');
-const compiledCampaign = require('../ethereum/build/Campaign.json');
+const compiledParadox = require('../bin/ethereum/contracts/paradox.json');
 
+const defaultBaseURI = "http://example.com";
+const defaultGas = '2999999';
 
 let accounts;
-let factory;
+let paradox;
+let owner;
 
-let campaignAddress;
-let campaign;
+const testData = {
+    levelImageURL: "http://sampleURL",
+    answerHash: "0x746573745b38da6a701c568545dcfcb03fcb875f56beddc4"
+}
 
 beforeEach(async () => {
     accounts = await web3.eth.getAccounts();
-    factory = await new web3.eth.Contract(compiledFactory.abi)
-        .deploy({ data: compiledFactory.evm.bytecode.object })
-        .send({ from: accounts[0], gas: '1235075' });
+    owner = accounts[0];
 
-    await factory.methods.createCampaign('100').send(
-        {
-            from: accounts[0],
-            gas: '1000000'
-        });
-
-    [campaignAddress] = await factory.methods.getDeployedCampaigns().call();
-
-    campaign = await new web3.eth.Contract(compiledCampaign.abi, campaignAddress);
+    paradox = await new web3.eth.Contract(compiledParadox.abi)
+        .deploy({
+            data: compiledParadox.bytecode,
+            arguments: [defaultBaseURI],
+        })
+        .send({ from: owner, gas: defaultGas });
 });
 
-
-describe('Campaigns', () => {
-    it('deploys a factory and a campaign', () => {
-        assert.ok(factory.options.address)
-        assert.ok(campaign.options.address)
+describe("Paradox creation tests", () => {
+    it("deploys the paradox contract", () => {
+        assert.ok(paradox.options.address);
     })
 
-    it('marks caller as the campaign manager', async () => {
-        const manager = await campaign.methods.manager().call();
-        assert.equal(accounts[0], manager);
+    it("is paused by default after deployment", async () => {
+        const paused = await paradox.methods.paused().call();
+        assert(paused);
     })
 
-    it('it allows people to contribute some money and mark them as approvers', async () => {
-        await campaign.methods.contribute().send({
-            value: '200',
-            from: accounts[1],
-        });
-
-        const isApprover = await campaign.methods.approvers(accounts[1]).call()
-        assert(isApprover)
+    it("sets the baseURI given in the constructor after deployment", async () => {
+        const baseURI = await paradox.methods.baseURI().call();
+        assert.equal(baseURI, defaultBaseURI);
     })
 
-    it('requires a minimum contribution', async () => {
+    it("marks the contract creator as admin after deployment", async () => {
+        const isAdmin = await paradox.methods.isAdmin(owner).call();
+        assert(isAdmin);
+    })
+})
+
+describe("Paradox Administration", () => {
+    it("does not allow non-owner to change anyone's admin status", async () => {
+        const nonOwner = accounts[1];
         try {
-            await campaign.methods.contribute().send({
-                value: '50',
-                from: accounts[2],
-            })
+            await paradox.methods.changeAdminStatus(accounts[2], true)
+                .send({ from: nonOwner, gas: defaultGas })
             assert(false);
         } catch (err) {
             assert(err);
         }
     })
 
-    it('allows a manager to make a payment request', async () => {
-        await campaign.methods
-            .createRequest('buy batteries', '100', accounts[1],)
-            .send({ from: accounts[0], gas: '1235075'});
+    it("only allows the owner to make anyone admin", async () => {
+        const sampleAccount = accounts[2];
+        await paradox.methods.changeAdminStatus(sampleAccount, true)
+            .send({ from: owner, gas: defaultGas });
 
-        const request = await campaign.methods.requests(0).call();
-        assert.equal('buy batteries', request.description);
+        const isAdmin = await paradox.methods.isAdmin(sampleAccount).call();
+        assert(isAdmin);
     })
 
-    it('processes requests', async () => {
-        await campaign.methods.contribute().send({
-            from: accounts[0],
-            value: web3.utils.toWei('10', 'ether')
-        })
+    it("only allows the owner to change the paused state", async () => {
+        const currentPausedState = await paradox.methods.paused().call()
 
-        await campaign.methods
-            .createRequest('A', web3.utils.toWei('5', 'ether'), accounts[1])
-            .send({ from: accounts[0], gas: '1235075' })
+        const nonOwner = accounts[1];
+        try {
+            await paradox.methods.setPaused(false)
+                .send({ from: nonOwner, gas: defaultGas })
+            assert(false);
+        } catch (err) {
+            assert(err);
+        }
 
-        await campaign.methods.approveRequest(0).send({
-            from: accounts[0],
-            gas: '1000000'
-        })
+        await paradox.methods.setPaused(!currentPausedState)
+            .send({ from: owner, gas: defaultGas });
 
-        await campaign.methods.finalizeRequest(0).send({
-            from: accounts[0],
-            gas: '1000000'
-        })
+        const paused = await paradox.methods.paused().call()
+        assert.equal(paused, !currentPausedState);
+    })
 
-        let balance = await web3.eth.getBalance(accounts[1]);
-        balance = web3.utils.fromWei(balance, 'ether');
+    it("only allows the owner to change the baseURI", async () => {
+        const nonOwner = accounts[1];
+        const newBaseURI = "http://newURL.com";
+        try {
+            await paradox.methods.setBaseURI("")
+                .send({ from: nonOwner, gas: defaultGas })
+            assert(false);
+        } catch (err) {
+            assert(err);
+        }
 
-        balance = parseFloat(balance);
+        await paradox.methods.setBaseURI(newBaseURI)
+            .send({ from: owner, gas: defaultGas });
 
-        console.log(balance);
-        // the amount of money in each ganache account is not reset between test runs
-        // So, we're making a guess that probably accounts[1] has close to 99 Ether
-        // After finalizing request, we're sending 5 ether to accounts[1]
-        assert(balance > 103);
+        const result = await paradox.methods.baseURI().call()
+        assert.equal(result, newBaseURI);
     })
 })
+
+describe("Paradox game tests", () => {
+    it("does not allow creating new level if not paused", async () => {
+        await paradox.methods.setPaused(true)
+            .send({ from: owner, gas: defaultGas });
+
+        try {
+            await paradox.methods.createLevel(testData.levelImageURL, testData.answerHash).send({ from: owner, gas: defaultGas });
+            assert(false)
+        } catch (err) {
+            assert(err)
+        }
+    });
+
+    it("does not allow non-admin to create a new level", async () => {
+        const nonAdmin = accounts[1];
+        await paradox.methods.setPaused(false)
+            .send({ from: owner, gas: defaultGas });
+
+        try {
+            await paradox.methods.createLevel(testData.levelImageURL, testData.answerHash)
+                .send({ from: nonAdmin, gas: defaultGas });
+            assert(false)
+        } catch (err) {
+            assert(err)
+        }
+    })
+
+    it("does not allow creating a level with empty image url", async () => {
+        try {
+            await paradox.methods.createLevel("", testData.answerHash)
+                .send({ from: owner, gas: defaultGas });
+            assert(false);
+        } catch (err) {
+            assert(err)
+        }
+    })
+
+    it("does not allow creating a level with empty answer hash", async () => {
+        try {
+            await paradox.methods.createLevel(testData.levelImageURL, "")
+                .send({ from: owner, gas: defaultGas });
+            assert(false);
+        } catch (err) {
+            assert(err)
+        }
+    })
+
+    it("creates a new level", async () => {
+        await paradox.methods.createLevel(testData.levelImageURL, testData.answerHash)
+            .send({ from: owner, gas: defaultGas });
+
+        const level = await paradox.methods.levels(1).call();
+        assert.equal(level.id, '1');
+        assert.equal(level.mintsSoFar, '0');
+        assert.equal(level.mintsWithoutAnswer, '0');
+        assert.equal(level.initialized, true);
+        assert.equal(level.imageURL, testData.levelImageURL);
+
+        // check if the answer was correctly set 
+        const guess = web3.eth.abi.encodeParameters(["string", "address"], [testData.answerHash, accounts[1]]);
+        const encryptedGuess = web3.utils.keccak256(guess);
+
+        const isCorrect = await paradox.methods.checkAnswer(1, encryptedGuess).call({from: accounts[1]});
+        assert(isCorrect)
+    });
+
+})
+
+

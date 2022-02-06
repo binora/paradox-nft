@@ -9,13 +9,13 @@ contract paradox is ERC721A, Ownable {
     using SafeMath for uint256;
 
     struct Level {
-        mapping(address => uint) purchasesPerOwner;
         uint id;
         uint mintsSoFar;
         uint mintsWithoutAnswer;
         bool initialized;
+        mapping(address => uint) purchasesPerOwner;
+        string imageURL;
     }
-
 
     uint256 public constant totalItems = 4500;
     uint256 public constant itemsPerLevel = 300;
@@ -31,18 +31,30 @@ contract paradox is ERC721A, Ownable {
     mapping(address => bool) private admins;
     Level[] public levels;
 
-    mapping(uint256 => bytes32) private answers;
+    mapping(uint256 => string) private answers;
 
     constructor(string memory uri) ERC721A("Binny", "BINNY") {
         baseURI = uri;
         paused = true;
         admins[msg.sender] = true;
+
+        // create an empty level to start level indices from 1
+        levels.push();
     }
     
     modifier onlyAdmin(address account) {
         require(account != address(0));
         require(admins[msg.sender]);
         _;
+    }
+
+    function isAdmin(address account) public view returns (bool) {
+        return admins[account];
+    }
+
+    function changeAdminStatus(address account, bool status) external onlyOwner {
+        require(account != address(0));
+        admins[account] = status;
     }
 
     modifier whenPaused() {
@@ -70,43 +82,53 @@ contract paradox is ERC721A, Ownable {
         return size > 0;
     }
 
-    function changeAdminStatus(address account, bool status) external onlyOwner {
-        require(account != address(0));
-        admins[account] = status;
-    }
+    function createLevel(string memory imageURL, string memory answerHash) public whenPaused onlyAdmin(msg.sender) {
+        require(!isEmpty(imageURL));
+        require(!isEmpty(answerHash));
 
-    function createLevel(bytes32 hash) public whenPaused onlyAdmin(msg.sender) {
         Level storage level = levels.push(); 
-        level.initialized = true;
-        
         uint levelIndex = levels.length - 1;
+
         level.id = levelIndex;
-        
-        answers[levelIndex] = hash;
+        level.initialized = true;
+        level.imageURL = imageURL;
+
+        answers[levelIndex] = answerHash;
     }
 
-    function checkAnswer(uint256 levelIndex, string memory guess) public view returns (bool) {
-        bytes32 answer = answers[levelIndex];
-        require(answer != bytes32(0), "Answer not set for this level");
+    function updateLevel(uint levelIndex, bool initialized, string memory imageURL) public whenPaused onlyAdmin(msg.sender) {
+        require(levelIndex > 0 && levelIndex < levels.length);
+        require(!isEmpty(imageURL));
 
-        bytes memory g = bytes(guess);
-        
-        return keccak256(g) == keccak256(abi.encodePacked(answer, msg.sender));
+        Level storage level = levels[levelIndex];
+        level.initialized = initialized;
+        level.imageURL = imageURL;
     }
 
-    function canMintWithoutAnswer(uint levelIndex, uint quantity) internal returns (bool) {
+    function checkAnswer(uint256 levelIndex, bytes32 guess) public view returns (bool) {
+        require(levelIndex > 0 && levelIndex < levels.length);
+
+        string memory answer = answers[levelIndex];
+        require(!isEmpty(answer), "Answer not set for this level");
+
+        return guess == keccak256(abi.encode(answer, msg.sender));
+    }
+
+    function canMintWithoutAnswer(uint levelIndex, uint quantity) internal view returns (bool) {
         Level storage level = levels[levelIndex];
         return (msg.value >= quantity.mul(maxPricePerItem)) && (level.mintsWithoutAnswer.add(quantity) <= maxPurchasesWithoutAnswerPerLevel);
     }
 
-    function canMintWithAnswer(uint levelIndex, string memory guess, uint quantity) internal returns (bool) {
+    function canMintWithAnswer(uint levelIndex, bytes32 guess, uint quantity) internal view returns (bool) {
         require(msg.value >= quantity.mul(pricePerItem), "Insufficient transaction value");
         return checkAnswer(levelIndex, guess);
     }
 
-    function mint(uint levelIndex, string memory guess, uint quantity) external payable {
+    function mint(uint levelIndex, bytes32 guess, uint quantity) external payable {
         require(!paused);
         require(!isContract(msg.sender));
+
+        require(levelIndex > 0 && levelIndex < levels.length - 1);
 
         uint supply = totalSupply();
         require(supply < totalItems, "Sorry, all Items are sold out.");
@@ -129,7 +151,6 @@ contract paradox is ERC721A, Ownable {
 
         currentLevel.mintsSoFar = currentLevel.mintsSoFar.add(quantity);
         currentLevel.purchasesPerOwner[msg.sender] = currentLevel.purchasesPerOwner[msg.sender].add(quantity);
-
         
         _safeMint(msg.sender, quantity);
     }
@@ -137,6 +158,11 @@ contract paradox is ERC721A, Ownable {
     function withdraw() public onlyOwner {
         uint balance = address(this).balance;
         payable(msg.sender).transfer(balance);
+    }
+
+    function isEmpty(string memory str) internal pure returns (bool) {
+        bytes memory s = bytes(str);
+        return s.length == 0;
     }
 }
 
