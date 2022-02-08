@@ -17,11 +17,11 @@ contract paradox is ERC721A, Ownable {
         string imageURL;
     }
 
-    uint256 public constant totalItems = 4500;
-    uint256 public constant itemsPerLevel = 300;
-    uint256 public constant maxPurchasesWithoutAnswerPerLevel = 100;
-    uint256 public constant maxPurchasePerLevelPerUser = 2;
+    uint256 public totalItems;
+    uint256 public itemsPerLevel;
+    uint256 public maxPurchasesWithoutAnswerPerLevel;
 
+    uint256 public constant maxPurchasePerLevelPerUser = 2;
     uint256 public constant maxPricePerItem = 1 ether;
     uint256 public constant pricePerItem = 0.02 ether;
 
@@ -33,13 +33,28 @@ contract paradox is ERC721A, Ownable {
 
     mapping(uint256 => string) private answers;
 
-    constructor(string memory uri) ERC721A("Binny", "BINNY") {
+    constructor(
+        string memory uri,
+        uint256 _totalItems,
+        uint256 _itemsPerLevel,
+        uint256 _maxPurchasesWithoutAnswerPerLevel
+        ) ERC721A("Binny", "BINNY") {
+
         baseURI = uri;
+        totalItems = _totalItems;
+        itemsPerLevel = _itemsPerLevel;
+        maxPurchasesWithoutAnswerPerLevel = _maxPurchasesWithoutAnswerPerLevel;
+
         paused = true;
         admins[msg.sender] = true;
 
         // create an empty level to start level indices from 1
         levels.push();
+    }
+
+    modifier onlyValidLevel(uint levelIndex) {
+        require(levelIndex > 0 && levelIndex < levels.length, "invalid level index");
+        _;
     }
     
     modifier onlyAdmin(address account) {
@@ -96,8 +111,7 @@ contract paradox is ERC721A, Ownable {
         answers[levelIndex] = answerHash;
     }
 
-    function updateLevel(uint levelIndex, bool initialized, string memory imageURL) public whenPaused onlyAdmin(msg.sender) {
-        require(levelIndex > 0 && levelIndex < levels.length);
+    function updateLevel(uint levelIndex, bool initialized, string memory imageURL) public whenPaused onlyAdmin(msg.sender) onlyValidLevel(levelIndex) {
         require(!isEmpty(imageURL));
 
         Level storage level = levels[levelIndex];
@@ -105,18 +119,11 @@ contract paradox is ERC721A, Ownable {
         level.imageURL = imageURL;
     }
 
-    function checkAnswer(uint256 levelIndex, bytes32 guess) public view returns (bool) {
-        require(levelIndex > 0 && levelIndex < levels.length);
-
+    function checkAnswer(uint levelIndex, bytes32 guess) public view onlyValidLevel(levelIndex) returns (bool) {
         string memory answer = answers[levelIndex];
         require(!isEmpty(answer), "Answer not set for this level");
 
         return guess == keccak256(abi.encode(answer, msg.sender));
-    }
-
-    function canMintWithoutAnswer(uint levelIndex, uint quantity) internal view returns (bool) {
-        Level storage level = levels[levelIndex];
-        return (msg.value >= quantity.mul(maxPricePerItem)) && (level.mintsWithoutAnswer.add(quantity) <= maxPurchasesWithoutAnswerPerLevel);
     }
 
     function canMintWithAnswer(uint levelIndex, bytes32 guess, uint quantity) internal view returns (bool) {
@@ -124,11 +131,9 @@ contract paradox is ERC721A, Ownable {
         return checkAnswer(levelIndex, guess);
     }
 
-    function mint(uint levelIndex, bytes32 guess, uint quantity) external payable {
-        require(!paused);
-        require(!isContract(msg.sender));
-
-        require(levelIndex > 0 && levelIndex < levels.length - 1);
+    function mint(uint levelIndex, bytes32 guess, uint quantity) external onlyValidLevel(levelIndex) payable {
+        require(!paused, "Game is paused. Please try again later");
+        require(!isContract(msg.sender), "Contracts are not allowed to mint NFTs");
 
         uint supply = totalSupply();
         require(supply < totalItems, "Sorry, all Items are sold out.");
@@ -136,14 +141,15 @@ contract paradox is ERC721A, Ownable {
         Level storage currentLevel = levels[levelIndex];
 
         require(currentLevel.initialized, "Unknown level");
-        require(currentLevel.mintsSoFar != itemsPerLevel, "All items have been minted for this level");
-        require(currentLevel.mintsSoFar.add(quantity) <= itemsPerLevel, "Not enough minteable items for this level");
+        require(currentLevel.mintsSoFar < itemsPerLevel, "All items have been minted for this level");
+        require(currentLevel.mintsSoFar.add(quantity) <= itemsPerLevel, "Not enough minteable items left in this level");
 
         require(quantity > 0 && currentLevel.purchasesPerOwner[msg.sender].add(quantity) <= maxPurchasePerLevelPerUser, "Max purchase limit for user reached for this level.");
 
-        bool mintWithoutAnswer = canMintWithoutAnswer(levelIndex, quantity);
+        bool canMintWithoutAnswer = msg.value >= quantity.mul(maxPricePerItem);
 
-        if (mintWithoutAnswer) {
+        if (canMintWithoutAnswer) {
+            require(currentLevel.mintsWithoutAnswer.add(quantity) <= maxPurchasesWithoutAnswerPerLevel, "Exceeded purchase-without-answer limit");
             currentLevel.mintsWithoutAnswer = currentLevel.mintsWithoutAnswer.add(quantity);
         } else {
             require(canMintWithAnswer(levelIndex, guess, quantity), "Incorrect answer");
