@@ -6,7 +6,6 @@ const web3 = new Web3(ganache.provider());
 
 const compiledParadox = require('../bin/ethereum/contracts/paradox.json');
 const compiledMinter = require('../bin/ethereum/contracts/minter.json');
-const { create } = require('domain');
 
 const defaultBaseURI = "http://example.com";
 const defaultGas = '2999999';
@@ -14,7 +13,6 @@ const defaultGas = '2999999';
 const totalItems = 9;
 const itemsPerLevel = 3;
 const maxPurchasesWithoutAnswerPerLevel = 2;
-const maxPricePerItemInEther = 1;
 
 let accounts;
 let paradox;
@@ -129,7 +127,7 @@ describe("Paradox Administration", () => {
                 .send({ from: nonOwner, gas: defaultGas })
             assert(false);
         } catch (err) {
-            assert(err);
+            assertErrReason(err, "Ownable: caller is not the owner")
         }
 
         await paradox.methods.setPaused(!currentPausedState)
@@ -147,7 +145,7 @@ describe("Paradox Administration", () => {
                 .send({ from: nonOwner, gas: defaultGas })
             assert(false);
         } catch (err) {
-            assert(err);
+            assertErrReason(err, "Ownable: caller is not the owner")
         }
 
         await paradox.methods.setBaseURI(newBaseURI)
@@ -160,20 +158,20 @@ describe("Paradox Administration", () => {
 
 describe("Paradox game tests", () => {
     it("does not allow creating new level if not paused", async () => {
-        await paradox.methods.setPaused(true)
+        await paradox.methods.setPaused(false)
             .send({ from: owner, gas: defaultGas });
 
         try {
             await paradox.methods.createLevel(testData.levelImageURL, testData.answerHash).send({ from: owner, gas: defaultGas });
             assert(false)
         } catch (err) {
-            assert(err)
+            assertErrReason(err, "Method invocation requires the game to be paused")
         }
     });
 
     it("does not allow non-admin to create a new level", async () => {
         const nonAdmin = accounts[1];
-        await paradox.methods.setPaused(false)
+        await paradox.methods.setPaused(true)
             .send({ from: owner, gas: defaultGas });
 
         try {
@@ -181,6 +179,7 @@ describe("Paradox game tests", () => {
                 .send({ from: nonAdmin, gas: defaultGas });
             assert(false)
         } catch (err) {
+            assertErrReason(err, "This account does not have permission to perform this action")
             assert(err)
         }
     })
@@ -191,7 +190,7 @@ describe("Paradox game tests", () => {
                 .send({ from: owner, gas: defaultGas });
             assert(false);
         } catch (err) {
-            assert(err)
+            assertErrReason(err, "Image url cannot be empty")
         }
     })
 
@@ -201,7 +200,7 @@ describe("Paradox game tests", () => {
                 .send({ from: owner, gas: defaultGas });
             assert(false);
         } catch (err) {
-            assert(err)
+            assertErrReason(err, "Answer hash cannot be empty")
         }
     })
 
@@ -230,7 +229,7 @@ describe("Paradox game tests", () => {
                 .send({ from: owner, gas: defaultGas });
             assert(false);
         } catch (err) {
-            assert(err)
+            assertErrReason(err, "Method invocation requires the game to be paused")
         }
     })
 
@@ -243,7 +242,7 @@ describe("Paradox game tests", () => {
                 .send({ from: owner, gas: defaultGas })
             assert(false)
         } catch (err) {
-            assert(err)
+            assertErrReason(err, "Invalid level index")
         }
 
         try {
@@ -251,7 +250,7 @@ describe("Paradox game tests", () => {
                 .send({ from: owner, gas: defaultGas })
             assert(false)
         } catch (err) {
-            assert(err);
+            assertErrReason(err, "Invalid level index")
         }
     })
 })
@@ -412,7 +411,6 @@ describe("Paradox mint tests", () => {
         let tokenOwner = await paradox.methods.ownerOf(0).call()
         assert.equal(tokenOwner, accounts[1]);
     })
-
 });
 
 

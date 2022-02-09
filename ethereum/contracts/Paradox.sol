@@ -53,13 +53,13 @@ contract paradox is ERC721A, Ownable {
     }
 
     modifier onlyValidLevel(uint levelIndex) {
-        require(levelIndex > 0 && levelIndex < levels.length, "invalid level index");
+        require(levelIndex > 0 && levelIndex < levels.length, "Invalid level index");
         _;
     }
     
     modifier onlyAdmin(address account) {
         require(account != address(0));
-        require(admins[msg.sender]);
+        require(admins[msg.sender], "This account does not have permission to perform this action");
         _;
     }
 
@@ -73,7 +73,7 @@ contract paradox is ERC721A, Ownable {
     }
 
     modifier whenPaused() {
-        require(paused);
+        require(paused, "Method invocation requires the game to be paused");
         _;
     }
 
@@ -98,8 +98,8 @@ contract paradox is ERC721A, Ownable {
     }
 
     function createLevel(string memory imageURL, string memory answerHash) public whenPaused onlyAdmin(msg.sender) {
-        require(!isEmpty(imageURL));
-        require(!isEmpty(answerHash));
+        require(!isEmpty(imageURL), "Image url cannot be empty");
+        require(!isEmpty(answerHash), "Answer hash cannot be empty");
 
         Level storage level = levels.push(); 
         uint levelIndex = levels.length - 1;
