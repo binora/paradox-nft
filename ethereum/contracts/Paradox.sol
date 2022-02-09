@@ -28,9 +28,12 @@ contract paradox is ERC721A, Ownable {
     bool public paused;
     string public baseURI;
 
-    mapping(address => bool) private admins;
     Level[] public levels;
 
+    uint public levelsCount;
+    uint public activeLevel;
+
+    mapping(address => bool) private admins;
     mapping(uint256 => string) private answers;
 
     constructor(
@@ -50,10 +53,16 @@ contract paradox is ERC721A, Ownable {
 
         // create an empty level to start level indices from 1
         levels.push();
+        levelsCount = levelsCount.add(1);
     }
 
     modifier onlyValidLevel(uint levelIndex) {
         require(levelIndex > 0 && levelIndex < levels.length, "Invalid level index");
+        _;
+    }
+
+    modifier onlyForActiveLevel(uint levelIndex) {
+        require(activeLevel == levelIndex, "Sorry, this level is not activated yet");
         _;
     }
     
@@ -109,6 +118,7 @@ contract paradox is ERC721A, Ownable {
         level.imageURL = imageURL;
 
         answers[levelIndex] = answerHash;
+        levelsCount += 1;
     }
 
     function updateLevel(uint levelIndex, bool initialized, string memory imageURL) public whenPaused onlyAdmin(msg.sender) onlyValidLevel(levelIndex) {
@@ -119,7 +129,15 @@ contract paradox is ERC721A, Ownable {
         level.imageURL = imageURL;
     }
 
-    function checkAnswer(uint levelIndex, bytes32 guess) public view onlyValidLevel(levelIndex) returns (bool) {
+    function setActiveLevel(uint levelIndex) public onlyValidLevel(levelIndex) onlyOwner {
+        activeLevel = levelIndex;
+    }
+
+    function getActiveLevel() public view returns (uint){
+        return activeLevel;
+    }
+
+    function checkAnswer(uint levelIndex, bytes32 guess) public view onlyValidLevel(levelIndex) onlyForActiveLevel(levelIndex) returns (bool) {
         string memory answer = answers[levelIndex];
         require(!isEmpty(answer), "Answer not set for this level");
 
@@ -131,7 +149,7 @@ contract paradox is ERC721A, Ownable {
         return checkAnswer(levelIndex, guess);
     }
 
-    function mint(uint levelIndex, bytes32 guess, uint quantity) external onlyValidLevel(levelIndex) payable {
+    function mint(uint levelIndex, bytes32 guess, uint quantity) external onlyValidLevel(levelIndex) onlyForActiveLevel(levelIndex) payable {
         require(!paused, "Game is paused. Please try again later");
         require(!isContract(msg.sender), "Contracts are not allowed to mint NFTs");
 

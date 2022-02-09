@@ -30,9 +30,19 @@ const setPaused = async (paused) => {
         .send({ from: owner, gas: defaultGas });
 }
 
+
+const activateLevel = async (levelIndex) => {
+    await paradox.methods.setActiveLevel(levelIndex)
+        .send({ from: owner, gas: defaultGas })
+}
+
 const createLevel = async () => {
     await paradox.methods.createLevel(testData.levelImageURL, testData.answerHash)
         .send({ from: owner, gas: defaultGas });
+
+    const levelsCount = await paradox.methods.levelsCount().call();
+
+    await activateLevel(levelsCount - 1);
 }
 
 const generateGuess = (guess, from) => {
@@ -94,6 +104,14 @@ describe("Paradox creation tests", () => {
     it("marks the contract creator as admin after deployment", async () => {
         const isAdmin = await paradox.methods.isAdmin(owner).call();
         assert(isAdmin);
+    })
+
+    it("creates an empty level on contract deployment", async () => {
+        const levelsCount = await paradox.methods.levelsCount().call();
+        assert.equal(levelsCount, 1);
+
+        const level = await paradox.methods.levels(0).call();
+        assert.equal(level.id, '0');
     })
 })
 
@@ -205,8 +223,7 @@ describe("Paradox game tests", () => {
     })
 
     it("creates a new level", async () => {
-        await paradox.methods.createLevel(testData.levelImageURL, testData.answerHash)
-            .send({ from: owner, gas: defaultGas });
+        await createLevel();
 
         const level = await paradox.methods.levels(1).call();
         assert.equal(level.id, '1');
@@ -215,10 +232,15 @@ describe("Paradox game tests", () => {
         assert.equal(level.initialized, true);
         assert.equal(level.imageURL, testData.levelImageURL);
 
+
         const guess = generateGuess(testData.answerHash, accounts[1]);
 
         const isCorrect = await paradox.methods.checkAnswer(1, guess).call({ from: accounts[1] });
         assert(isCorrect)
+
+        const levelsCount = await paradox.methods.levelsCount().call()
+        // including 0th level
+        assert.equal(levelsCount, 2)
     });
 
     it('does not allow updating a level when the game is on', async () => {
@@ -256,13 +278,26 @@ describe("Paradox game tests", () => {
 })
 
 describe("Paradox mint tests", () => {
+    it("does not allow users to mint from an inactive level", async () => {
+        await createLevel();
+        await createLevel();
+
+        await setPaused(false);
+
+        try {
+            await mintNFT(1, "test", 1, owner, '0.03')
+            assert(false);
+        } catch (err) {
+            assertErrReason(err, "Sorry, this level is not activated yet")
+        }
+    })
+
     it("does not allow users to mint when contract is paused", async () => {
         await setPaused(true);
         await createLevel();
 
         try {
-            await paradox.methods.mint(1, generateGuess("test", owner), 1)
-                .send({ from: owner, gas: defaultGas })
+            await mintNFT(1, "test", 1, owner, '0.03')
             assert(false)
         } catch (err) {
             assertErrReason(err, "Game is paused. Please try again later");
@@ -290,8 +325,12 @@ describe("Paradox mint tests", () => {
         }
         await setPaused(false);
         for (index of iterations) {
+            await activateLevel(index);
             await mintNFT(index, testData.answerHash, 1, accounts[index], '0.03');
         }
+
+        // We need to activate level before minting
+        await activateLevel(1);
 
         const lastUser = accounts[9];
         try {
