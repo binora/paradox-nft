@@ -4,7 +4,8 @@
   "description": "NFT project based on puzzles ",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --timeout 10000"
+    "test": "mocha --timeout 10000",
+    "dev": "next dev"
   },
   "keywords": [
     "nft",
@@ -19,7 +20,14 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.2",
+    "@web3-react/core": "^6.1.9",
+    "@web3-react/metamask": "^8.0.0-beta.0",
     "dotenv": "^10.0.0",
+    "next": "^12.0.10",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "semantic-ui-css": "^2.4.1",
+    "semantic-ui-react": "^2.1.1",
     "solc": "^0.8.11",
     "truffle-hdwallet-provider": "^1.0.17",
     "web3": "^1.7.0"
