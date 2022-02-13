@@ -8,7 +8,7 @@ const ganacheURL = 'http://127.0.0.1:8545'
 if (typeof window !== 'undefined' && typeof window.web3 !== 'undefined') {
     web3 = new Web3(window.web3.currentProvider || window.ethereum);
 } else {
-    const provider = new Web3.providers.HttpProvider(ganacheURL);
+    const provider = new Web3.providers.HttpProvider(goerliURL);
     web3 = new Web3(provider);
 }
 
