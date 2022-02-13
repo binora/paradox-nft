@@ -138,6 +138,7 @@ contract paradox is ERC721A, Ownable {
     }
 
     function checkAnswer(uint levelIndex, bytes32 guess) public view onlyValidLevel(levelIndex) onlyForActiveLevel(levelIndex) returns (bool) {
+        require(!paused);
         string memory answer = answers[levelIndex];
         require(!isEmpty(answer), "Answer not set for this level");
 

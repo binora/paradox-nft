@@ -4,7 +4,7 @@ const compiled = require('../bin/ethereum/contracts/paradox.json');
 
 const instance = new web3.eth.Contract(
     compiled.abi,
-    '0x1Ffd7e65ad706fEC053b98caE72b66733f4aE80e'
+    '0x5e34a497fBFd2E859458Eb2168EDCE09917f172e'
 )
 
 

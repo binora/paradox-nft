@@ -7,7 +7,7 @@ import { Header } from "semantic-ui-react";
 
 
 const levelStyle = {
-    marginTop: "20px"
+    marginTop: "40px"
 }
 
 const LevelIndex = (props) => {
@@ -16,7 +16,7 @@ const LevelIndex = (props) => {
         <Layout>
             <div style={levelStyle}>
                 <Header size="huge" textAlign="center">Level {level.id}</Header>
-                <Level level={level} itemsPerLevel={gameInfo.itemsPerLevel} />
+                <Level level={level} gameInfo={gameInfo} />
             </div>
         </Layout>
 
@@ -28,16 +28,27 @@ LevelIndex.getInitialProps = async () => {
         paradox.methods.activeLevel().call(),
         paradox.methods.itemsPerLevel().call(),
         paradox.methods.totalItems().call(),
-        paradox.methods.maxPurchasesWithoutAnswerPerLevel().call()
+        paradox.methods.maxPurchasesWithoutAnswerPerLevel().call(),
+        paradox.methods.maxPricePerItem().call(),
+        paradox.methods.pricePerItem().call()
     ])
-    const [activeLevelIndex, itemsPerLevel, totalItems, maxPurchasesWithoutAnswerPerLevel] = results;
+    const [
+        activeLevelIndex,
+        itemsPerLevel,
+        totalItems,
+        maxPurchasesWithoutAnswerPerLevel,
+        maxPricePerItem,
+        pricePerItem
+    ] = results;
 
     const level = await paradox.methods.levels(activeLevelIndex).call()
 
     const gameInfo = {
         itemsPerLevel,
         totalItems,
-        maxPurchasesWithoutAnswerPerLevel
+        maxPurchasesWithoutAnswerPerLevel,
+        maxPricePerItem,
+        pricePerItem,
     }
 
     return {

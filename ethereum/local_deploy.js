@@ -31,17 +31,24 @@ const deploy = async () => {
     console.log('Paradox Contract deployed to: ', paradox.options.address);
 };
 
-
 const setup = async () => {
     await deploy();
 
     const imageURL = "https://wallpaperaccess.com/full/334698.jpg"
-    const answerHash = "520801d7eb7f6ba83c81f7866ff820803019025b1d347ddfe6d30dceda22d882"
+    const answerHash = web3.utils.keccak256("sagar")
 
-    await paradox.methods.createLevel(imageURL, answerHash)
-        .send({ from: owner, gas: defaultGas });
-    await paradox.methods.setActiveLevel(1)
-        .send({ from: owner, gas: defaultGas })
+    try {
+        await paradox.methods.createLevel(imageURL, answerHash)
+            .send({ from: owner, gas: defaultGas });
+        await paradox.methods.setActiveLevel(1)
+            .send({ from: owner, gas: defaultGas })
+    } catch (err) {
+        console.log(err)
+    }
+
+    await paradox.methods.setPaused(false).send({
+        from: owner, gas: defaultGas
+    })
 
 }
 
