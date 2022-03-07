@@ -3,11 +3,11 @@ import paradox from '../ethereum/paradox';
 
 import Level from "../components/level";
 import Layout from "../components/Layout";
-import { Header } from "semantic-ui-react";
+import { Heading } from "@chakra-ui/layout";
 
 
 const levelStyle = {
-    marginTop: "40px"
+    marginTop: "20px"
 }
 
 const LevelIndex = (props) => {
@@ -15,7 +15,7 @@ const LevelIndex = (props) => {
     return (
         <Layout>
             <div style={levelStyle}>
-                <Header size="huge" textAlign="center">Level {level.id}</Header>
+                <Heading size="xl" textAlign="center">Level {level.id}</Heading>
                 <Level level={level} gameInfo={gameInfo} />
             </div>
         </Layout>

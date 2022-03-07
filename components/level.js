@@ -5,21 +5,35 @@ import paradox from '../ethereum/paradox';
 
 import {
     Input,
-    Image,
+    StatGroup,
+    Stat,
+    StatNumber,
+    StatLabel,
     Button,
+    Image,
+    Flex,
     Divider,
-    List,
-    Label,
-    Segment,
-    Header
-} from "semantic-ui-react";
+} from "@chakra-ui/react";
 
 import web3 from "../ethereum/web3";
+
+const containerStyle = {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+    marginTop: "20px"
+}
 
 const mintStyle = {
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
+    gap: "20px",
+    width: "90%"
+}
+
+const questionStyle = {
+    display: "flex",
     gap: "20px",
 }
 
@@ -90,7 +104,6 @@ const Level = (props) => {
                 }
             });
         }
-        console.log(state)
     }
 
     const mint = async (guess) => {
@@ -160,7 +173,6 @@ const Level = (props) => {
                 }
             })
         }
-        console.log(state)
     }
 
 
@@ -174,71 +186,63 @@ const Level = (props) => {
     }, [])
 
     return (
-        <div style={{
-            alignItems: "center",
-            display: "flex",
-            gap: "20px",
-            marginTop: "40px"
-        }}>
-            <Image src={imageURL} wrapped size="massive" />
-
-            <div style={mintStyle}>
-                <Segment size="huge" padded style={{ width: "100%" }}>
-                    <Header style={{ textAlign: "center" }}>Stats</Header>
-                    <List divided>
-                        <List.Item style={{
-                            display: "flex",
-                            justifyContent: "space-between"
-
-                        }}>
-                            <Label color='blue' horizontal >
-                                Total Mints
-                            </Label>
-                            {mintsSoFar} / {itemsPerLevel}
-                        </List.Item>
-                        <List.Item style={{
-                            display: "flex",
-                            justifyContent: "space-between"
-
-                        }}>
-                            <Label color='red' horizontal>
-                                Total mints without answer
-                            </Label>
-                            {mintsWithoutAnswer} / {maxPurchasesWithoutAnswerPerLevel}
-                        </List.Item>
-                    </List>
-                </Segment>
-                <Divider horizontal />
-                <Input
-                    value={state.guess}
-                    placeholder='Type your answer here'
-                    onChange={onChange}
-                    action>
-                    <input />
-                    <Button
-                        color="twitter"
-                        onClick={checkAnswer}
-                        loading={state.loading}
-                    >
-                        Check Answer
-                    </Button>
-                    <Button
-                        disabled={!state.isCorrect}
-                        primary
-                        onClick={() => mint(state.guess)}
-                        loading={state.isMinting}
-                    >
-                        Mint
-                    </Button>
-                </Input>
-                <Divider horizontal>Or</Divider>
-                <Button
-                    loading={state.isMintingWithoutAnswer}
-                    color="orange"
-                    onClick={() => mintWithoutAnswer()}
+        <div style={containerStyle}>
+            <div style={questionStyle}>
+                <div style={mintStyle}>
+                    <Image src={imageURL} height="80%" />
+                    <Flex justifyContent="space-between">
+                        <Input
+                            value={state.guess}
+                            placeholder='Type your answer here'
+                            onChange={onChange}
+                            width="50%"
+                        >
+                        </Input>
+                        <Button
+                            color="twitter"
+                            onClick={checkAnswer}
+                            loading={state.loading}
+                        >
+                            Check Answer
+                        </Button>
+                        <Button
+                            disabled={!state.isCorrect}
+                            primary
+                            onClick={() => mint(state.guess)}
+                            loading={state.isMinting}
+                        >
+                            Mint for {web3.utils.fromWei(pricePerItem, 'ether')} ETH
+                        </Button>
+                        <Divider orientation="vertical" />
+                        <Button
+                            loading={state.isMintingWithoutAnswer}
+                            color="orange"
+                            onClick={() => mintWithoutAnswer()}
+                        >
+                            Mint for {web3.utils.fromWei(maxPricePerItem, 'ether')} ETH
+                        </Button>
+                    </Flex>
+                </div>
+                <StatGroup
+                    flexDirection="column"
+                    marginTop="20%"
+                    marginBottom="20%"
+                    maxHeight="100%"
+                    marginLeft="1%"
                 >
-                    Mint for {web3.utils.fromWei(maxPricePerItem, 'ether')} ETH
-                </Button>
+                    <Stat>
+                        <StatLabel>Total Mints</StatLabel>
+                        <StatNumber>
+                            {mintsSoFar} / {itemsPerLevel}
+                        </StatNumber>
+                    </Stat>
+                    <Stat>
+                        <StatLabel>Expensive Mints</StatLabel>
+                        <StatNumber>
+                            {mintsWithoutAnswer} / {maxPurchasesWithoutAnswerPerLevel}
+                        </StatNumber>
+                    </Stat>
+                </StatGroup>
             </div>
 
         </div >

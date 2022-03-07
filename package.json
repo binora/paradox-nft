@@ -19,10 +19,14 @@
     "mocha": "^9.2.0"
   },
   "dependencies": {
+    "@chakra-ui/react": "^1.8.6",
+    "@emotion/react": "^11.8.1",
+    "@emotion/styled": "^11.8.1",
     "@openzeppelin/contracts": "^4.4.2",
     "@web3-react/core": "^6.1.9",
     "@web3-react/metamask": "^8.0.0-beta.0",
     "dotenv": "^10.0.0",
+    "framer-motion": "^6.2.8",
     "next": "^12.0.10",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
